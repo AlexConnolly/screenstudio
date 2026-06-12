@@ -113,13 +113,48 @@ export async function startExport(req: ExportRequest): Promise<string> {
   return path;
 }
 
+/**
+ * Positions a video at `target` for sequential reads without per-frame precise seeks —
+ * those force a re-decode from the previous keyframe every time (~0.3 s/frame on a
+ * 50 Mbps intermediate). Instead the element plays forward and we wait for playback to
+ * cross the target; real seeks only happen at cuts/backward jumps. Source accuracy is
+ * within one source frame, same as the preview's drift window.
+ */
+async function advanceTo(video: HTMLVideoElement, target: number): Promise<void> {
+  const epsilon = 1 / 120;
+  if (target < video.currentTime - 0.08 || target > video.currentTime + 2.5) {
+    video.pause();
+    await seekVideo(video, target);
+    return;
+  }
+  if (video.currentTime >= target - epsilon) {
+    // Never let playback outrun the encoder by more than ~2 source frames, or we'd
+    // serve future frames for earlier targets.
+    if (video.currentTime > target + 0.04 && !video.paused) video.pause();
+    return;
+  }
+  const gap = target - video.currentTime;
+  video.playbackRate = Math.min(8, Math.max(1, gap * 30)); // catch up fast through sped-up ranges
+  if (video.paused) await video.play().catch(() => {});
+  await new Promise<void>((resolve) => {
+    const check = () => {
+      if (!active || video.currentTime >= target - epsilon || video.ended) {
+        resolve();
+        return;
+      }
+      requestAnimationFrame(check);
+    };
+    requestAnimationFrame(check);
+  });
+}
+
 export async function handleNeedFrame(index: number): Promise<void> {
   if (!active) return;
   const a = active;
   const outTime = (index + 0.5) / a.fps; // mid-frame sampling avoids cut-boundary flicker
   const srcTime = outToSrc(a.edl, outTime);
-  await seekVideo(a.video, srcTime);
-  if (a.cam) await seekVideo(a.cam, srcTime - a.camOffset);
+  await advanceTo(a.video, srcTime);
+  if (a.cam) await advanceTo(a.cam, srcTime - a.camOffset);
   if (!active) return; // cancelled while seeking
   renderFrame(a.ctx, a.width, a.height, srcTime, a.inputs);
 

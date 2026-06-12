@@ -59,6 +59,8 @@ export function Preview() {
     let raf = 0;
     let lastNow = performance.now();
     let prevSrcTime = -1;
+    let lastDraw = { srcTime: -1, project: null as unknown, zoomSel: null as string | null, w: 0, h: 0 };
+    let wasSeeking = false;
 
     const loop = (now: number) => {
       raf = requestAnimationFrame(loop);
@@ -69,6 +71,7 @@ export function Preview() {
       const canvas = canvasRef.current;
       const container = containerRef.current;
       if (!s.project || !s.meta || !s.events || !canvas || !container) return;
+      if (s.exporting) return; // the export loop owns the main thread and the render core
       const d = getDerived(s.project, s.meta, s.events);
 
       let time = s.time;
@@ -173,6 +176,17 @@ export function Preview() {
       }
       canvas.style.width = `${w}px`;
       canvas.style.height = `${h}px`;
+
+      // Skip identical paused frames (shadow blur is expensive); redraw around seeks
+      // so freshly decoded frames land on the canvas.
+      const seekingNow = video.seeking || (media.cam?.seeking ?? false);
+      const dirty =
+        s.playing || seekingNow || wasSeeking ||
+        lastDraw.srcTime !== srcTime || lastDraw.project !== s.project ||
+        lastDraw.zoomSel !== s.selectedZoomId || lastDraw.w !== pw || lastDraw.h !== ph;
+      wasSeeking = seekingNow;
+      if (!dirty) return;
+      lastDraw = { srcTime, project: s.project, zoomSel: s.selectedZoomId, w: pw, h: ph };
 
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
