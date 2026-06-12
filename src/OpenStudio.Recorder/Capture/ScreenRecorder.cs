@@ -42,6 +42,11 @@ public sealed class ScreenRecorder : IDisposable
     /// <summary>Optional sub-rectangle of the capture item to record (region mode, §3.1).</summary>
     private readonly (int X, int Y, int W, int H)? _region;
 
+    /// <summary>MF_MPEG4SINK_MOOV_BEFORE_MDAT — faststart mp4: the index goes at the
+    /// front so players can start decoding immediately instead of reading the whole
+    /// file first (critical for long recordings).</summary>
+    public static readonly Guid MoovBeforeMdat = new("f672e3ac-e1e6-4f10-b5ec-5f3b30828816");
+
     public int Width { get; }
     public int Height { get; }
 
@@ -115,6 +120,7 @@ public sealed class ScreenRecorder : IDisposable
         profile.Video.FrameRate.Denominator = 1;
         // Near-lossless intermediate: it gets zoomed up to 4x and re-encoded at export (§3.3).
         profile.Video.Bitrate = (uint)Math.Min(120_000_000L, (long)(Width * (long)Height * fps * 0.4));
+        try { profile.Container.Properties.Add(MoovBeforeMdat, true); } catch { }
 
         _fileStream = new FileStream(outputPath, FileMode.Create, FileAccess.ReadWrite, FileShare.Read);
         var transcoder = new MediaTranscoder { HardwareAccelerationEnabled = true };

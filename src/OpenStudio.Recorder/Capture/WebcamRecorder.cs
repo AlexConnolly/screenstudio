@@ -69,6 +69,7 @@ public sealed class WebcamRecorder : IDisposable
             // Auto profile records at the camera's native format (§3.3).
             var profile = MediaEncodingProfile.CreateMp4(VideoEncodingQuality.Auto);
             profile.Audio = null;
+            try { profile.Container.Properties.Add(ScreenRecorder.MoovBeforeMdat, true); } catch { }
 
             await using (File.Create(path)) { }
             var file = await StorageFile.GetFileFromPathAsync(Path.GetFullPath(path));

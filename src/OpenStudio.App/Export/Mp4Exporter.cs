@@ -173,6 +173,8 @@ public sealed class Mp4Exporter : IDisposable
         profile.Video.FrameRate.Numerator = (uint)s.Fps;
         profile.Video.FrameRate.Denominator = 1;
         if (pcm == null) profile.Audio = null;
+        // Faststart: exported files start playing immediately when uploaded/streamed.
+        try { profile.Container.Properties.Add(OpenStudio.Recorder.Capture.ScreenRecorder.MoovBeforeMdat, true); } catch { }
 
         using var fileStream = new FileStream(outputPath, FileMode.Create, FileAccess.ReadWrite, FileShare.Read);
         var transcoder = new MediaTranscoder { HardwareAccelerationEnabled = true };
