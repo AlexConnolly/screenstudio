@@ -104,6 +104,9 @@ public sealed class ScreenRecorder : IDisposable
 
         var props = VideoEncodingProperties.CreateUncompressed(
             MediaEncodingSubtypes.Bgra8, (uint)Width, (uint)Height);
+        // Explicit top-down stride: unattributed RGB is bottom-up per MF convention and
+        // some encoders flip it (D3D surfaces are inherently top-down; declare it).
+        props.Properties.Add(new Guid("644b4e48-1e02-4516-b0eb-c01ca9d49ac6"), (uint)(Width * 4));
         var mss = new MediaStreamSource(new VideoStreamDescriptor(props))
         {
             BufferTime = TimeSpan.Zero,

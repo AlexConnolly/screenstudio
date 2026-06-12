@@ -189,6 +189,12 @@ public sealed class RecordingSession : IDisposable
             _cam.Dispose();
         }
 
+        // Faststart remux (§3.3): MF writes the moov index at the end, which makes long
+        // recordings painfully slow to open in the editor.
+        Mp4Faststart.Apply(Path.Combine(ProjectDir, ProjectPaths.ScreenMp4));
+        var cameraPath = Path.Combine(ProjectDir, ProjectPaths.CameraMp4);
+        if (File.Exists(cameraPath)) Mp4Faststart.Apply(cameraPath);
+
         var sessionStartMs = _sessionStartQpc * 1000.0 / Stopwatch.Frequency;
         var meta = new CaptureMeta
         {

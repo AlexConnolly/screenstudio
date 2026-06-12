@@ -239,6 +239,7 @@ public class Bridge
             try
             {
                 await exporter.RunAsync(_webview, _environment, _window.Dispatcher, projectDir, settings, outputPath);
+                if (settings.Format == "mp4") Mp4Faststart.Apply(outputPath);
                 Log.Info($"Export done → {outputPath}");
                 _window.PostToEditor(Json.Serialize(new { type = "export:done", path = outputPath }));
             }

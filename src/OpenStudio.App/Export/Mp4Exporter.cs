@@ -26,6 +26,10 @@ public sealed class ExportSettings
 
 /// <summary>
 /// Export keeps the render core as the contract (§7.3): the editor's compositor renders
+///
+/// Frame orientation: MF treats unattributed uncompressed RGB as BOTTOM-UP (legacy DIB
+/// convention) — some vendors' encoders honor that and flip the video. We declare an
+/// explicit positive stride (top-down) so every encoder agrees with the canvas layout.
 /// every output frame into a WebView2 shared buffer (pixel-identical to preview), and
 /// this class pulls frames on demand — MediaStreamSource requests a sample, we ask the
 /// editor for exactly one frame, wait, swizzle RGBA→BGRA and hand it to the encoder.
@@ -83,6 +87,9 @@ public sealed class Mp4Exporter : IDisposable
 
         var videoProps = VideoEncodingProperties.CreateUncompressed(
             MediaEncodingSubtypes.Bgra8, (uint)s.Width, (uint)s.Height);
+        // MF_MT_DEFAULT_STRIDE, positive = top-down. Without this, RGB orientation is
+        // encoder-dependent (upside-down exports on some GPUs).
+        videoProps.Properties.Add(new Guid("644b4e48-1e02-4516-b0eb-c01ca9d49ac6"), (uint)(s.Width * 4));
         var videoDesc = new VideoStreamDescriptor(videoProps);
 
         MediaStreamSource mss;
