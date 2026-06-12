@@ -61,6 +61,29 @@ export function Preview() {
     let prevSrcTime = -1;
     let lastDraw = { srcTime: -1, project: null as unknown, zoomSel: null as string | null, w: 0, h: 0 };
     let wasSeeking = false;
+    let stallSince = 0;
+    let decodeRetries = 0;
+
+    const sizeCanvas = (canvas: HTMLCanvasElement, container: HTMLDivElement, ar: number) => {
+      const cw = container.clientWidth;
+      const ch = container.clientHeight;
+      let w = cw;
+      let h = w / ar;
+      if (h > ch) {
+        h = ch;
+        w = h * ar;
+      }
+      const dpr = window.devicePixelRatio || 1;
+      const pw = Math.max(2, Math.round(w * dpr));
+      const ph = Math.max(2, Math.round(h * dpr));
+      if (canvas.width !== pw || canvas.height !== ph) {
+        canvas.width = pw;
+        canvas.height = ph;
+      }
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
+      return { pw, ph };
+    };
 
     const loop = (now: number) => {
       raf = requestAnimationFrame(loop);
@@ -100,7 +123,41 @@ export function Preview() {
       const media = getMedia();
       if (!media) return;
       const video = media.video;
-      if (video.readyState < 2) return;
+      if (video.readyState < 2 || video.error) {
+        // A silent black canvas is indistinguishable from a broken recording — show the
+        // state, and kick the decoder if it stalls (hardware decoders can hiccup right
+        // after a capture session releases the encoder).
+        const ar = aspectRatio(s.project, s.meta);
+        const { pw, ph } = sizeCanvas(canvas, container, ar);
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.fillStyle = "#0d1017";
+          ctx.fillRect(0, 0, pw, ph);
+          ctx.fillStyle = "#64748b";
+          ctx.font = `500 ${16 * (window.devicePixelRatio || 1)}px "Segoe UI", system-ui`;
+          ctx.textAlign = "center";
+          ctx.fillText(
+            video.error
+              ? `Video decoder error (code ${video.error.code}) — retrying…`
+              : "Loading video…",
+            pw / 2, ph / 2);
+          ctx.textAlign = "start";
+        }
+        if (stallSince === 0) stallSince = now;
+        const stalled = now - stallSince > 4000 || video.error;
+        if (stalled && decodeRetries < 3) {
+          decodeRetries++;
+          stallSince = now;
+          video.load(); // re-open the demuxer/decoder
+        } else if (stalled && decodeRetries === 3) {
+          decodeRetries++;
+          s.setError("The screen video failed to decode after several retries — try reopening the project.");
+        }
+        lastDraw.srcTime = -1; // force a real draw once frames arrive
+        return;
+      }
+      stallSince = 0;
+      decodeRetries = 0;
 
       // Keep the <video> element tracking the source clock.
       const drift = Math.abs(video.currentTime - srcTime);
@@ -158,24 +215,8 @@ export function Preview() {
       }
 
       // Fit the canvas to the container at the output aspect ratio.
-      const ar = aspectRatio(s.project, s.meta);
-      const cw = container.clientWidth;
-      const ch = container.clientHeight;
-      let w = cw;
-      let h = w / ar;
-      if (h > ch) {
-        h = ch;
-        w = h * ar;
-      }
+      const { pw, ph } = sizeCanvas(canvas, container, aspectRatio(s.project, s.meta));
       const dpr = window.devicePixelRatio || 1;
-      const pw = Math.max(2, Math.round(w * dpr));
-      const ph = Math.max(2, Math.round(h * dpr));
-      if (canvas.width !== pw || canvas.height !== ph) {
-        canvas.width = pw;
-        canvas.height = ph;
-      }
-      canvas.style.width = `${w}px`;
-      canvas.style.height = `${h}px`;
 
       // Skip identical paused frames (shadow blur is expensive); redraw around seeks
       // so freshly decoded frames land on the canvas.

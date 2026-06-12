@@ -52,6 +52,7 @@ export function initMedia(mediaBase: string, meta: Meta): MediaSet {
     sysOffset: (meta.sysStartOffsetMs - meta.videoStartOffsetMs) / 1000,
     camOffset: (meta.camStartOffsetMs - meta.videoStartOffsetMs) / 1000,
   };
+  (window as unknown as Record<string, unknown>).__media = current; // diagnostics
   return current;
 }
 
