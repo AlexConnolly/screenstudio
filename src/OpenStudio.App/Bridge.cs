@@ -226,6 +226,7 @@ public class Bridge
             FileName = suggestedName,
             Filter = isGif ? "GIF animation|*.gif" : "MP4 video|*.mp4",
             DefaultExt = isGif ? ".gif" : ".mp4",
+            InitialDirectory = Path.GetDirectoryName(projectDir) ?? "",
         };
         if (dialog.ShowDialog(_window) != true) return "";
         var outputPath = dialog.FileName;
@@ -237,7 +238,8 @@ public class Bridge
         {
             try
             {
-                await exporter.RunAsync(_webview, _environment, projectDir, settings, outputPath);
+                await exporter.RunAsync(_webview, _environment, _window.Dispatcher, projectDir, settings, outputPath);
+                Log.Info($"Export done → {outputPath}");
                 _window.PostToEditor(Json.Serialize(new { type = "export:done", path = outputPath }));
             }
             catch (OperationCanceledException)
@@ -246,6 +248,7 @@ public class Bridge
             }
             catch (Exception ex)
             {
+                Log.Error("Export failed", ex);
                 _window.PostToEditor(Json.Serialize(new { type = "export:error", message = ex.Message }));
             }
         });

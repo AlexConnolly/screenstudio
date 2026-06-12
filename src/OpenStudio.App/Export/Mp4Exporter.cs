@@ -36,7 +36,7 @@ public sealed class Mp4Exporter : IDisposable
     private readonly AutoResetEvent _frameReady = new(false);
     private readonly Action<string> _postToEditor;
     private CoreWebView2SharedBuffer? _buffer;
-    private Stream? _bufferStream;
+    private IntPtr _bufferPtr;
     private volatile bool _cancelled;
 
     public Mp4Exporter(Action<string> postToEditor) => _postToEditor = postToEditor;
@@ -52,6 +52,7 @@ public sealed class Mp4Exporter : IDisposable
     public async Task RunAsync(
         CoreWebView2 webview,
         CoreWebView2Environment environment,
+        System.Windows.Threading.Dispatcher dispatcher,
         string projectDir,
         ExportSettings s,
         string outputPath)
@@ -59,11 +60,17 @@ public sealed class Mp4Exporter : IDisposable
         var frameCount = Math.Max(1, (int)Math.Round(s.DurationSec * s.Fps));
         var frameBytes = (ulong)((long)s.Width * s.Height * 4);
 
-        _buffer = environment.CreateSharedBuffer(frameBytes);
-        _bufferStream = _buffer.OpenStream();
-        webview.PostSharedBufferToScript(
-            _buffer, CoreWebView2SharedBufferAccess.ReadWrite,
-            Json.Serialize(new { type = "export:buffer", width = s.Width, height = s.Height }));
+        // WebView2 COM objects are apartment-bound: creating/posting the shared buffer
+        // off the UI thread fails with a misleading "interface not supported" cast error.
+        // Set up on the dispatcher and keep only the raw memory pointer for worker threads.
+        await dispatcher.InvokeAsync(() =>
+        {
+            _buffer = environment.CreateSharedBuffer(frameBytes);
+            _bufferPtr = _buffer.Buffer;
+            webview.PostSharedBufferToScript(
+                _buffer, CoreWebView2SharedBufferAccess.ReadWrite,
+                Json.Serialize(new { type = "export:buffer", width = s.Width, height = s.Height }));
+        });
 
         if (s.Format == "gif")
         {
@@ -139,17 +146,7 @@ public sealed class Mp4Exporter : IDisposable
                 }
 
                 var rgba = new byte[frameBytes];
-                lock (_bufferStream!)
-                {
-                    _bufferStream.Seek(0, SeekOrigin.Begin);
-                    var read = 0;
-                    while (read < rgba.Length)
-                    {
-                        var n = _bufferStream.Read(rgba, read, rgba.Length - read);
-                        if (n <= 0) break;
-                        read += n;
-                    }
-                }
+                System.Runtime.InteropServices.Marshal.Copy(_bufferPtr, rgba, 0, rgba.Length);
                 SwizzleRgbaToBgra(rgba);
 
                 var sample = MediaStreamSample.CreateFromBuffer(
@@ -208,17 +205,7 @@ public sealed class Mp4Exporter : IDisposable
                 if (!WaitForFrame() || _cancelled) break;
 
                 var rgba = new byte[frameBytes];
-                lock (_bufferStream!)
-                {
-                    _bufferStream.Seek(0, SeekOrigin.Begin);
-                    var read = 0;
-                    while (read < rgba.Length)
-                    {
-                        var n = _bufferStream.Read(rgba, read, rgba.Length - read);
-                        if (n <= 0) break;
-                        read += n;
-                    }
-                }
+                System.Runtime.InteropServices.Marshal.Copy(_bufferPtr, rgba, 0, rgba.Length);
                 gif.AddFrame(rgba);
                 if (index % 5 == 0 || index == frameCount - 1)
                     _postToEditor(Json.Serialize(new { type = "export:progress", frame = index + 1, total = frameCount }));
@@ -257,8 +244,7 @@ public sealed class Mp4Exporter : IDisposable
 
     public void Dispose()
     {
-        _bufferStream?.Dispose();
-        _buffer?.Dispose();
+        try { _buffer?.Dispose(); } catch { /* apartment-bound; best effort */ }
         _frameReady.Dispose();
     }
 }
