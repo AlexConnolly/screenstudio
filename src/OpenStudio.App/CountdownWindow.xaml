@@ -1,0 +1,14 @@
+<Window x:Class="OpenStudio.App.CountdownWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        Topmost="True" ShowInTaskbar="False" ShowActivated="False"
+        ResizeMode="NoResize">
+    <Grid>
+        <Border HorizontalAlignment="Center" VerticalAlignment="Center"
+                Background="#CC0B0D12" CornerRadius="32" Padding="64,32">
+            <TextBlock x:Name="CountText" Text="3" FontSize="120" FontWeight="Bold"
+                       Foreground="#F8FAFC" HorizontalAlignment="Center" />
+        </Border>
+    </Grid>
+</Window>

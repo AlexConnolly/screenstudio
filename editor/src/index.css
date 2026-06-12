@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2b3242 transparent;
+}
+
+input[type="range"] {
+  appearance: none;
+  height: 4px;
+  border-radius: 9999px;
+  background: #2b3242;
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background: #818cf8;
+  cursor: pointer;
+  border: 2px solid #0b0d12;
+}
+
+input[type="color"] {
+  appearance: none;
+  border: none;
+  padding: 0;
+  background: transparent;
+  width: 28px;
+  height: 22px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+input[type="color"]::-webkit-color-swatch {
+  border: 1px solid #3a4254;
+  border-radius: 6px;
+}

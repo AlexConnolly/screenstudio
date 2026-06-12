@@ -1,0 +1,22 @@
+<Window x:Class="OpenStudio.App.RegionSelectorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None" AllowsTransparency="True" Background="#01000000"
+        Topmost="True" ShowInTaskbar="False" ResizeMode="NoResize"
+        Cursor="Cross" KeyDown="OnKey">
+    <Canvas x:Name="Surface"
+            MouseLeftButtonDown="OnDown" MouseMove="OnMove" MouseLeftButtonUp="OnUp">
+        <Rectangle x:Name="DimTop" Fill="#99000000" />
+        <Rectangle x:Name="DimBottom" Fill="#99000000" />
+        <Rectangle x:Name="DimLeft" Fill="#99000000" />
+        <Rectangle x:Name="DimRight" Fill="#99000000" />
+        <Rectangle x:Name="Sel" Stroke="#818CF8" StrokeThickness="2" Fill="Transparent" />
+        <Border x:Name="SizeLabel" Background="#E60B0D12" CornerRadius="6" Padding="8,3" Visibility="Collapsed">
+            <TextBlock x:Name="SizeText" Foreground="#F8FAFC" FontSize="13" FontFamily="Consolas" />
+        </Border>
+        <Border Canvas.Left="24" Canvas.Top="24" Background="#E60B0D12" CornerRadius="8" Padding="14,8">
+            <TextBlock Foreground="#CBD5E1" FontSize="13"
+                       Text="Drag to select the recording area — Esc to cancel" />
+        </Border>
+    </Canvas>
+</Window>
